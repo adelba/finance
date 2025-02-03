@@ -17,7 +17,7 @@ def plot_trend(df, selected_month, title):
     fig, ax1 = plt.subplots(figsize=(10, 5))
     ax1.plot(df['Fecha valor'], df['Saldo'], marker='o', linestyle='-', label='Saldo', color='blue')
     ax1.set_xlabel("Fecha valor")
-    ax1.set_ylabel("Saldo (€)", color='blue')  # Label with € symbol
+    ax1.set_ylabel("Balance (€)", color='blue')  # Label with € symbol
     ax1.tick_params(axis='y', labelcolor='blue')
     ax1.grid()
     
@@ -50,10 +50,10 @@ def main():
         mean_saldo = df_filtered['Saldo'].mean()
         
         # Display max, min, and mean values with € symbol
-        st.write("### Saldo Statistics")
-        st.write(f"Maximum Saldo: {max_saldo:,.2f} €")
-        st.write(f"Minimum Saldo: {min_saldo:,.2f} €")
-        st.write(f"Mean Saldo (excluding max and min): {mean_saldo:,.2f} €")
+        st.write("### Balance Statistics")
+        st.write(f"Maximum Balance: {max_saldo:,.2f} €")
+        st.write(f"Minimum Balance: {min_saldo:,.2f} €")
+        st.write(f"Mean Balance (excluding max and min): {mean_saldo:,.2f} €")
         
         months = df['Month'].astype(str).unique().tolist()
         months.insert(0, "All Time")
