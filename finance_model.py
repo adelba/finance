@@ -7,7 +7,7 @@ import joblib
 import os
 
 # 📌 Load the dataset
-csv_path = r"C:\Users\there\Documents\scripts\BI_finance\transactions.csv"
+csv_path = r"C:\Users\there\Documents\scripts\BI_finance\transactions_test.csv"
 df = pd.read_csv(csv_path)
 
 # 📌 1️⃣ Auto-label categories using keywords

@@ -1,65 +1,154 @@
-import streamlit as st 
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+import streamlit as st
+from sklearn.linear_model import LinearRegression
+from fpdf import FPDF
 
-def load_data(uploaded_file):
+# Load Data
+st.sidebar.header("Upload CSV File")
+uploaded_file = st.sidebar.file_uploader("Upload your finance data (CSV format)", type=["csv"])
+
+if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
+
+    # Ensure Fecha valor is a datetime column
     df['Fecha valor'] = pd.to_datetime(df['Fecha valor'], dayfirst=True)
-    df['Month'] = df['Fecha valor'].dt.to_period('M')
-    df = df.sort_values(by=['Fecha valor'])
-    df = df.groupby('Fecha valor').last().reset_index()
-    return df
 
-def plot_trend(df, selected_month, title):
-    if selected_month != "All Time":
-        df = df[df['Month'] == selected_month]
+    # Ensure YearMonth column exists
+    df['YearMonth'] = df['Fecha valor'].dt.to_period('M').astype(str)
+
+    # Ensure Income and Expense columns exist
+    if 'Income' not in df.columns:
+        df['Income'] = df['Importe'].apply(lambda x: x if x > 0 else 0)
+    if 'Expense' not in df.columns:
+        df['Expense'] = df['Importe'].apply(lambda x: abs(x) if x < 0 else 0)
+
+    # Debugging step
+    st.write("Columns in uploaded file:", df.columns.tolist())
+    st.write(df.head())  # Ensure YearMonth exists
+
+    # Group by YearMonth
+    monthly_summary = df.groupby("YearMonth")[["Income", "Expense"]].sum()
+
+    # Display results
+    st.write("### Monthly Income vs Expenses")
+    st.dataframe(monthly_summary)
+
+else:
+    st.warning("⚠️ Please upload a CSV file to proceed.")
+
+# ---- HEADER ----
+st.title("📊 Finance Dashboard")
+
+# ---- RAW DATA ----
+st.header("Raw Data")
+st.dataframe(df.head(10))
+
+# ---- KEY FINANCIAL METRICS ----
+total_income = df['Income'].sum()
+total_expense = df['Expense'].sum()
+net_savings = total_income - total_expense
+savings_rate = (net_savings / total_income) * 100 if total_income > 0 else 0
+
+st.header("📈 Key Financial Metrics")
+st.markdown(f"""
+- 💰 **Total Income:** `{total_income:,.2f} €`
+- 💸 **Total Expenses:** `{total_expense:,.2f} €`
+- 🏦 **Net Savings:** `{net_savings:,.2f} €`
+- 📉 **Savings Rate:** `{savings_rate:.2f} %`
+""")
+
+# ---- EXPENSES BY CATEGORY ----
+st.header("🛒 Expense Analysis by Category")
+
+if "Category" in df.columns:
+    category_expense = df.groupby("Category")["Expense"].sum().sort_values(ascending=False)
     
-    fig, ax1 = plt.subplots(figsize=(10, 5))
-    ax1.plot(df['Fecha valor'], df['Saldo'], marker='o', linestyle='-', label='Saldo', color='blue')
-    ax1.set_xlabel("Fecha valor")
-    ax1.set_ylabel("Balance (€)", color='blue')  # Label with € symbol
-    ax1.tick_params(axis='y', labelcolor='blue')
-    ax1.grid()
-    
-    ax2 = ax1.twinx()
-    colors = df['Importe'].apply(lambda x: 'red' if x < 0 else 'green')
-    ax2.bar(df['Fecha valor'], df['Importe'].abs(), color=colors, alpha=0.5, label='Importe')
-    ax2.set_ylabel("Importe (€)", color='green')  # Label with € symbol
-    ax2.tick_params(axis='y', labelcolor='green')
-    
-    plt.title(title)
-    fig.tight_layout()
+    fig, ax = plt.subplots(figsize=(8, 5))
+    category_expense[:5].plot(kind='pie', autopct='%1.1f%%', cmap='coolwarm', ax=ax)
+    ax.set_title("Top 5 Expense Categories")
+    ax.set_ylabel("")
     st.pyplot(fig)
+else:
+    st.warning("No 'Category' column found in dataset.")
 
-def main():
-    st.title("Finance Dashboard")
-    st.sidebar.header("Upload CSV File")
-    uploaded_file = st.sidebar.file_uploader("Upload your finance data (CSV format)", type=["csv"])
-    
-    if uploaded_file:
-        df = load_data(uploaded_file)
-        st.write("## Raw Data")
-        st.dataframe(df)
-        
-        # Calculate statistics for 'Saldo'
-        max_saldo = df['Saldo'].max()
-        min_saldo = df['Saldo'].min()
-        
-        # Exclude max and min for mean calculation
-        df_filtered = df[(df['Saldo'] != max_saldo) & (df['Saldo'] != min_saldo)]
-        mean_saldo = df_filtered['Saldo'].mean()
-        
-        # Display max, min, and mean values with € symbol
-        st.write("### Balance Statistics")
-        st.write(f"Maximum Balance: {max_saldo:,.2f} €")
-        st.write(f"Minimum Balance: {min_saldo:,.2f} €")
-        st.write(f"Mean Balance (excluding max and min): {mean_saldo:,.2f} €")
-        
-        months = df['Month'].astype(str).unique().tolist()
-        months.insert(0, "All Time")
-        selected_month = st.sidebar.selectbox("Select a Month to analyze", months)
-        
-        plot_trend(df, selected_month, f"Trend for {selected_month}")
+# ---- INCOME VS EXPENSES (BAR CHART) ----
+st.header("📊 Monthly Income vs Expenses")
 
-if __name__ == "__main__":
-    main()
+monthly_summary = df.groupby("YearMonth")[["Income", "Expense"]].sum()
+
+fig, ax = plt.subplots(figsize=(8, 5))
+bar_width = 0.4
+index = np.arange(len(monthly_summary))
+
+ax.bar(index, monthly_summary["Income"], width=bar_width, label="Income", color="green")
+ax.bar(index + bar_width, monthly_summary["Expense"], width=bar_width, label="Expense", color="red")
+
+ax.set_xlabel("Month")
+ax.set_ylabel("Amount (€)")
+ax.set_title("Monthly Income vs Expenses")
+ax.set_xticks(index + bar_width / 2)
+ax.set_xticklabels(monthly_summary.index, rotation=45)
+ax.legend()
+
+st.pyplot(fig)
+
+# ---- BUDGET TRACKER ----
+st.sidebar.header("💰 Set Your Monthly Budget")
+monthly_budget = st.sidebar.number_input("Enter your budget (€)", min_value=0, value=1000)
+
+selected_month = df["YearMonth"].max()
+selected_month_expense = df[df["YearMonth"] == selected_month]["Expense"].sum()
+
+st.header("🎯 Budget Tracker")
+progress = min(1.0, selected_month_expense / monthly_budget)
+st.progress(progress)
+
+st.markdown(f"""
+- **💸 Spent:** `{selected_month_expense:,.2f} €`
+- **💵 Remaining:** `{monthly_budget - selected_month_expense:,.2f} €`
+""")
+
+# ---- INCOME & EXPENSE FORECASTING ----
+st.header("🔮 Next Month Predictions")
+
+df["MonthIndex"] = np.arange(len(df))
+X = df[["MonthIndex"]]
+y_income = df["Income"]
+y_expense = df["Expense"]
+
+model_income = LinearRegression().fit(X, y_income)
+model_expense = LinearRegression().fit(X, y_expense)
+
+next_month_index = df["MonthIndex"].max() + 1
+predicted_income = model_income.predict([[next_month_index]])[0]
+predicted_expense = model_expense.predict([[next_month_index]])[0]
+
+st.markdown(f"""
+- **📈 Predicted Income:** `{predicted_income:,.2f} €`
+- **📉 Predicted Expenses:** `{predicted_expense:,.2f} €`
+""")
+
+# ---- DOWNLOADABLE PDF REPORT ----
+def generate_pdf():
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
+    pdf.cell(200, 10, txt="Finance Report", ln=True, align='C')
+    pdf.ln(10)
+
+    pdf.cell(200, 10, txt=f"Total Income: {total_income:.2f} €", ln=True)
+    pdf.cell(200, 10, txt=f"Total Expenses: {total_expense:.2f} €", ln=True)
+    pdf.cell(200, 10, txt=f"Net Savings: {net_savings:.2f} €", ln=True)
+    pdf.cell(200, 10, txt=f"Savings Rate: {savings_rate:.2f} %", ln=True)
+
+    pdf.output("Finance_Report.pdf")
+    st.success("Report Generated! Check your folder.")
+
+st.sidebar.button("📥 Download Financial Report", on_click=generate_pdf)
+
+# ---- END ----
+st.markdown("---")
+st.caption("📌 Developed by the one and only Odelov with ❤️ using Streamlit")

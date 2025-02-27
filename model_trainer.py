@@ -10,7 +10,7 @@ if not os.path.exists(model_path):
 model = joblib.load(model_path)
 
 # Load new transactions from CSV
-new_transactions_path = r"C:\Users\there\Documents\scripts\BI_finance\new_transactions.csv"
+new_transactions_path = r"C:\Users\there\Documents\scripts\BI_finance\transactions_test.csv"
 
 if not os.path.exists(new_transactions_path):
     raise FileNotFoundError(f"❌ CSV file not found: {new_transactions_path}")
