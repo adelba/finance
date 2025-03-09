@@ -1,11 +1,10 @@
 import pandas as pd
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")  # Use a non-interactive backend compatible with Streamlit
 import matplotlib.pyplot as plt
 import streamlit as st
 from sklearn.linear_model import LinearRegression
 from fpdf import FPDF
+import base64
 
 # Load Data
 st.sidebar.header("Upload CSV File")
@@ -64,8 +63,8 @@ st.markdown(f"""
 # ---- EXPENSES BY CATEGORY ----
 st.header("🛒 Expense Analysis by Category")
 
-if "Category" in df.columns:
-    category_expense = df.groupby("Category")["Expense"].sum().sort_values(ascending=False)
+if "Predicted Category" in df.columns:
+    category_expense = df.groupby("Predicted Category")["Expense"].sum().sort_values(ascending=False)
     
     fig, ax = plt.subplots(figsize=(8, 5))
     category_expense[:5].plot(kind='pie', autopct='%1.1f%%', cmap='coolwarm', ax=ax)
@@ -133,24 +132,44 @@ st.markdown(f"""
 """)
 
 # ---- DOWNLOADABLE PDF REPORT ----
+import base64
+
 def generate_pdf():
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
-    pdf.cell(200, 10, txt="Finance Report", ln=True, align='C')
+    def safe_text(text):
+        """Ensure text is in a format FPDF can handle by encoding & decoding it safely."""
+        return text.encode("latin-1", "replace").decode("latin-1")
+
+    pdf.cell(200, 10, safe_text("Finance Report"), ln=True, align='C')
     pdf.ln(10)
 
-    pdf.cell(200, 10, txt=f"Total Income: {total_income:.2f} €", ln=True)
-    pdf.cell(200, 10, txt=f"Total Expenses: {total_expense:.2f} €", ln=True)
-    pdf.cell(200, 10, txt=f"Net Savings: {net_savings:.2f} €", ln=True)
-    pdf.cell(200, 10, txt=f"Savings Rate: {savings_rate:.2f} %", ln=True)
+    pdf.cell(200, 10, safe_text(f"Total Income: {total_income:.2f} €"), ln=True)
+    pdf.cell(200, 10, safe_text(f"Total Expenses: {total_expense:.2f} €"), ln=True)
+    pdf.cell(200, 10, safe_text(f"Net Savings: {net_savings:.2f} €"), ln=True)
+    pdf.cell(200, 10, safe_text(f"Savings Rate: {savings_rate:.2f} %"), ln=True)
 
-    pdf.output("Finance_Report.pdf")
-    st.success("Report Generated! Check your folder.")
+    pdf_path = "Finance_Report.pdf"
+    pdf.output(pdf_path)
 
-st.sidebar.button("📥 Download Financial Report", on_click=generate_pdf)
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+        b64 = base64.b64encode(pdf_bytes).decode()
 
+    href = f'<a href="data:application/octet-stream;base64,{b64}" download="Finance_Report.pdf">📥 Click here to download the report</a>'
+    
+    # Store in session state so button can trigger the display
+    st.session_state["download_link"] = href
+
+# ✅ Make sure button displays the link inside the sidebar
+if st.sidebar.button("📥 Generate & Download Financial Report"):
+    generate_pdf()
+
+# ✅ Show download link *only* after clicking button
+if "download_link" in st.session_state:
+    st.sidebar.markdown(st.session_state["download_link"], unsafe_allow_html=True)
 # ---- END ----
 st.markdown("---")
 st.caption("📌 Developed by the one and only Odelov with ❤️ using Streamlit")
