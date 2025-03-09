@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")  # Use a non-interactive backend compatible with Streamlit
 import matplotlib.pyplot as plt
 import streamlit as st
 from sklearn.linear_model import LinearRegression
